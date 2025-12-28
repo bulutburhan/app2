@@ -3,23 +3,48 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Daha stabil olan sürümü seçtik
 
     steps:
       - uses: actions/checkout@v4
 
-      # -- DÜZELTİLEN KISIM BAŞLANGICI --
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: master
-        env:
-          # Bu satır hatayı çözer: Sisteme kullanıcının "root" olduğunu söylüyoruz.
-          USER: root
-      # -- DÜZELTİLEN KISIM BİTİŞİ --
+      # 1. Buildozer için gerekli ön hazırlıklar
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            python3 \
+            python3-dev \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0 \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good
 
+      # 2. Buildozer'ı ve gerekli Python kütüphanelerini kur
+      - name: Install Buildozer & Cython
+        run: |
+          pip3 install --upgrade pip
+          pip3 install buildozer cython virtualenv
+
+      # 3. Android SDK/NDK ayarlarını Buildozer otomatik yapsın diye çalıştırıyoruz
+      - name: Build with Buildozer
+        run: |
+          # yes komutu, buildozer lisans onayı isterse otomatik "y" tuşuna basar
+          yes | buildozer android debug
+
+      # 4. Sonucu yükle
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
