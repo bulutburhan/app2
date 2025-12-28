@@ -6,17 +6,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout da v4'e güncellendi
       - uses: actions/checkout@v4
 
+      # -- DÜZELTİLEN KISIM BAŞLANGICI --
       - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
         with:
           command: buildozer android debug
           buildozer_version: master
+        env:
+          # Bu satır hatayı çözer: Sisteme kullanıcının "root" olduğunu söylüyoruz.
+          USER: root
+      # -- DÜZELTİLEN KISIM BİTİŞİ --
 
-      # Hata veren kısım burasıydı, v4 yapıldı
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
