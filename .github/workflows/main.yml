@@ -3,43 +3,55 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # En kararlı Linux sürümü
 
     steps:
       - uses: actions/checkout@v4
 
-      # 1. YENİ EKLENEN KISIM: Java 17 Kurulumu (Android SDK için şart)
+      # 1. Java 17 Kurulumu (Android SDK için şart)
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 2. Gerekli Linux kütüphaneleri (Listeyi biraz daha güçlendirdim)
+      # 2. Python 3.11 Kurulumu (En kararlı sürüm, sistemle çakışmaz)
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. Gerekli Linux Kütüphaneleri
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-pip build-essential git python3 python3-dev ffmpeg \
-            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
-            zlib1g-dev libgstreamer1.0 gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good libunwind-dev libltdl-dev \
-            libffi-dev libssl-dev automake autoconf libtool
+            build-essential git ffmpeg libsdl2-dev libsdl2-image-dev \
+            libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev \
+            libavformat-dev libavcodec-dev zlib1g-dev libgstreamer1.0 \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good libunwind-dev \
+            libltdl-dev libffi-dev libssl-dev automake autoconf libtool
 
-      # 3. Buildozer Kurulumu (Cython sürümünü sabitledik, hata riskini azalttık)
-      - name: Install Buildozer & Cython
+      # 4. Buildozer Kurulumu (Sanal ortamda temiz kurulum)
+      - name: Install Buildozer
         run: |
-          pip3 install --upgrade pip --break-system-packages
-          # Cython 3.0 bazen sorun çıkarıyor, o yüzden eskide sabitliyoruz:
-          pip3 install buildozer cython==0.29.36 --break-system-packages
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.36
 
-      # 4. APK Üretimi
+      # 5. buildozer.spec dosyasına Lisans Ayarını Ekleme (yes komutuna gerek kalmaz)
+      - name: Configure buildozer.spec
+        run: |
+          # Mevcut spec dosyasında lisans ayarını bulup True yapıyoruz
+          sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
+          # Eğer yorum satırı yoksa, dosyanın sonuna ekliyoruz (garanti olsun)
+          echo "android.accept_sdk_license = True" >> buildozer.spec
+
+      # 6. APK Üretimi (yes komutu YOK, hata verirse net göreceğiz)
       - name: Build with Buildozer
         run: |
-          yes | buildozer android debug
+          buildozer android debug
 
-      # 5. Sonucu Yükle
+      # 7. Sonucu Yükle
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
