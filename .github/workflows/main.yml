@@ -3,12 +3,12 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # Daha stabil olan sürümü seçtik
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Buildozer için gerekli ön hazırlıklar
+      # 1. Eksik kütüphaneleri (libunwind-dev) ekledik
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -30,21 +30,22 @@ jobs:
             zlib1g-dev \
             libgstreamer1.0 \
             gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good
+            gstreamer1.0-plugins-good \
+            libunwind-dev \
+            libltdl-dev
 
-      # 2. Buildozer'ı ve gerekli Python kütüphanelerini kur
+      # 2. Python hatasını (PEP 668) aşmak için özel komut ekledik
       - name: Install Buildozer & Cython
         run: |
-          pip3 install --upgrade pip
-          pip3 install buildozer cython virtualenv
+          pip3 install --upgrade pip --break-system-packages
+          pip3 install buildozer cython --break-system-packages
 
-      # 3. Android SDK/NDK ayarlarını Buildozer otomatik yapsın diye çalıştırıyoruz
+      # 3. SDK lisanslarını otomatik kabul etmesi için 'yes' komutu
       - name: Build with Buildozer
         run: |
-          # yes komutu, buildozer lisans onayı isterse otomatik "y" tuşuna basar
           yes | buildozer android debug
 
-      # 4. Sonucu yükle
+      # 4. APK'yı yükle
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
