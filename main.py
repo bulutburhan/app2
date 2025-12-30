@@ -1,223 +1,147 @@
+import os
+# --- PC İÇİN GÖRÜNTÜ AYARI ---
+os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
+
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
-from kivy.graphics import Color, Line, Rectangle
+from kivy.graphics import Color, Line
 from kivy.core.window import Window
 from kivy.utils import get_color_from_hex
-from plyer import notification
-import random
 
-# Arkaplan rengini beyaza yakın gri yapalım
-Window.clearcolor = get_color_from_hex('#F2F2F7')
+# --- TELEFON GÖRÜNÜMÜ ---
+Window.size = (400, 750)
+Window.clearcolor = get_color_from_hex('#FFFFFF')
 
-class CircularProgressBar(Label):
+class SecondsRing(FloatLayout):
     def __init__(self, **kwargs):
-        super(CircularProgressBar, self).__init__(**kwargs)
-        self.thickness = 25
-        self.circle_color = get_color_from_hex('#5856D6') # Indigo rengi
-        self.bg_color = get_color_from_hex('#E5E5EA')     # Gri halka
-        self.angle_end = 360
+        super(SecondsRing, self).__init__(**kwargs)
+        self.thickness = 20
+        self.circle_color = get_color_from_hex('#5856D6') # Indigo
+        self.bg_color = get_color_from_hex('#F2F2F7')     # Gri İz
+        self.angle_end = 0
         self.bind(pos=self.update_canvas, size=self.update_canvas)
 
-    def set_value(self, current, total):
-        # Yüzdelik hesapla
-        if total > 0:
-            percentage = current / total
-            self.angle_end = percentage * 360
-            self.update_canvas()
+    def set_seconds(self, seconds):
+        # Her 60 saniyede bir tam tur atar (Saniye kolu mantığı)
+        current_second = seconds % 60
+        percentage = current_second / 60.0
+        self.angle_end = percentage * 360
+        self.update_canvas()
 
     def update_canvas(self, *args):
         self.canvas.before.clear()
         with self.canvas.before:
-            # 1. Gri Arkaplan Halkası
+            # Arkadaki sabit gri halka
             Color(rgba=self.bg_color)
-            Line(circle=(self.center_x, self.center_y, min(self.width, self.height)/2 - self.thickness), 
-                 width=self.thickness)
+            Line(circle=(self.center_x, self.center_y, 120), width=self.thickness)
             
-            # 2. İlerleme Halkası (Indigo)
+            # Öndeki dolan renkli halka
             Color(rgba=self.circle_color)
-            Line(circle=(self.center_x, self.center_y, min(self.width, self.height)/2 - self.thickness, 0, self.angle_end), 
+            Line(circle=(self.center_x, self.center_y, 120, 0, self.angle_end), 
                  width=self.thickness, cap='round')
 
 class FocusApp(App):
     def build(self):
-        self.title = "Odaklan"
-        self.messages = [
-            "Güzel elini çenenden çek",
-            "Ellerin için daha güzel bir yer seç",
-            "El, el, el, el! Odaklan!",
-            "Dik dur ve ekrana bak.",
-            "Hayallerin seni bekliyor, devam et!"
-        ]
-        
+        self.title = "Kronometre"
         self.is_running = False
-        self.is_paused = False
-        self.total_seconds = 1200 # Varsayılan 20 dk
-        self.current_seconds = 1200
+        self.elapsed_seconds = 0
         
-        # --- ARAYÜZ TASARIMI ---
-        main_layout = BoxLayout(orientation='vertical', padding=30, spacing=30)
+        # --- ANA EKRAN ---
+        root = FloatLayout()
         
         # 1. Başlık
-        title_label = Label(text="Odaklan", font_size='40sp', bold=True, 
-                            color=get_color_from_hex('#5856D6'), size_hint=(1, 0.15))
-        main_layout.add_widget(title_label)
+        title = Label(text="Kronometre", font_size='28sp', bold=True, 
+                      color=get_color_from_hex('#000000'),
+                      pos_hint={'center_x': 0.5, 'top': 0.92}, size_hint=(None, None))
+        root.add_widget(title)
 
-        # 2. Dairesel Sayaç
-        self.progress_ring = CircularProgressBar(size_hint=(None, None), size=(250, 250))
-        self.progress_ring.pos_hint = {'center_x': 0.5}
+        # 2. Halka (Ortada)
+        self.ring = SecondsRing(size_hint=(None, None), size=(300, 300),
+                                pos_hint={'center_x': 0.5, 'center_y': 0.55})
+        root.add_widget(self.ring)
         
-        # Sayacın ortasındaki metinler
-        center_text_layout = FloatLayout(size_hint=(1, 0.4))
-        center_text_layout.add_widget(self.progress_ring)
-        
-        self.time_label = Label(text="20:00", font_size='50sp', bold=True, 
-                                color=get_color_from_hex('#000000'), 
-                                pos_hint={'center_x': 0.5, 'center_y': 0.5})
-        center_text_layout.add_widget(self.time_label)
-        
-        self.status_label = Label(text="Hazır", font_size='18sp', 
-                                  color=get_color_from_hex('#8E8E93'),
-                                  pos_hint={'center_x': 0.5, 'center_y': 0.35})
-        center_text_layout.add_widget(self.status_label)
-        
-        main_layout.add_widget(center_text_layout)
+        # 3. Süre Yazısı (Halkanın İçinde)
+        self.time_label = Label(text="00:00:00", font_size='50sp', bold=True,
+                                color=get_color_from_hex('#000000'),
+                                pos_hint={'center_x': 0.5, 'center_y': 0.55})
+        root.add_widget(self.time_label)
 
-        # 3. Süre Giriş Alanı (Dakika)
-        input_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), spacing=10)
-        input_layout.add_widget(Label(text="Süre (Dk):", color=get_color_from_hex('#000000'), size_hint=(0.4, 1)))
+        # 4. Butonlar (Yan Yana)
+        btn_layout = BoxLayout(orientation='horizontal', spacing=20, size_hint=(0.8, None), height=70,
+                               pos_hint={'center_x': 0.5, 'y': 0.1})
         
-        self.input_field = TextInput(text="20", multiline=False, input_filter='float', 
-                                     halign='center', font_size='20sp', background_normal='')
-        self.input_field.background_color = get_color_from_hex('#FFFFFF')
-        self.input_field.foreground_color = get_color_from_hex('#000000')
-        input_layout.add_widget(self.input_field)
+        # Başlat / Duraklat Butonu
+        self.main_btn = Button(text="Başlat", font_size='22sp', bold=True,
+                               background_normal='', background_color=get_color_from_hex('#34C759'),
+                               color=get_color_from_hex('#FFFFFF'))
+        self.main_btn.bind(on_press=self.toggle_timer)
         
-        main_layout.add_widget(input_layout)
+        # Sıfırla Butonu
+        self.reset_btn = Button(text="Sıfırla", font_size='22sp', bold=True,
+                                background_normal='', background_color=get_color_from_hex('#8E8E93'),
+                                color=get_color_from_hex('#FFFFFF'))
+        self.reset_btn.bind(on_press=self.reset_timer)
+        
+        btn_layout.add_widget(self.reset_btn)
+        btn_layout.add_widget(self.main_btn)
+        
+        root.add_widget(btn_layout)
+        
+        return root
 
-        # 4. Butonlar (Başlat, Duraklat, Durdur)
-        self.buttons_layout = BoxLayout(orientation='horizontal', spacing=20, size_hint=(1, 0.15))
-        
-        self.start_btn = Button(text="Başlat", background_normal='', background_color=get_color_from_hex('#34C759'), 
-                                font_size='20sp', bold=True, on_press=self.start_timer)
-        
-        self.pause_btn = Button(text="Duraklat", background_normal='', background_color=get_color_from_hex('#FF9500'), 
-                                font_size='20sp', bold=True, on_press=self.pause_timer, disabled=True, opacity=0)
-        
-        self.stop_btn = Button(text="Bitir", background_normal='', background_color=get_color_from_hex('#FF3B30'), 
-                               font_size='20sp', bold=True, on_press=self.stop_timer, disabled=True, opacity=0)
-
-        self.buttons_layout.add_widget(self.start_btn)
-        self.buttons_layout.add_widget(self.pause_btn)
-        self.buttons_layout.add_widget(self.stop_btn)
-        
-        main_layout.add_widget(self.buttons_layout)
-        
-        return main_layout
-
-    def start_timer(self, instance):
+    def toggle_timer(self, instance):
         if not self.is_running:
-            # İlk başlatma veya durdurulduktan sonra başlatma
-            try:
-                mins = float(self.input_field.text)
-                if mins <= 0: mins = 1
-            except:
-                mins = 20
-                
-            self.total_seconds = int(mins * 60)
-            if not self.is_paused: # Eğer duraklatılmamışsa sıfırdan başla
-                self.current_seconds = self.total_seconds
-            
+            # Başlat
             self.is_running = True
-            self.is_paused = False
-            
-            # UI Güncelleme
-            self.status_label.text = "Odaklanılıyor..."
-            self.input_field.disabled = True
-            self.start_btn.disabled = True
-            self.start_btn.opacity = 0
-            
-            self.pause_btn.disabled = False
-            self.pause_btn.opacity = 1
-            self.pause_btn.text = "Duraklat"
-            self.pause_btn.background_color = get_color_from_hex('#FF9500')
-            
-            self.stop_btn.disabled = False
-            self.stop_btn.opacity = 1
-            
-            Clock.schedule_interval(self.update_time, 1)
-
-    def pause_timer(self, instance):
-        if self.is_paused:
-            # Devam Et (Resume)
-            self.is_paused = False
-            self.is_running = True
-            self.status_label.text = "Odaklanılıyor..."
-            self.pause_btn.text = "Duraklat"
-            self.pause_btn.background_color = get_color_from_hex('#FF9500') # Turuncu
+            self.main_btn.text = "Duraklat"
+            self.main_btn.background_color = get_color_from_hex('#FF9500') # Turuncu
+            self.reset_btn.disabled = True # Çalışırken sıfırlanmasın
+            self.reset_btn.opacity = 0.5
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # Duraklat (Pause)
+            # Duraklat
             self.is_running = False
-            self.is_paused = True
-            self.status_label.text = "Duraklatıldı"
-            self.pause_btn.text = "Devam Et"
-            self.pause_btn.background_color = get_color_from_hex('#34C759') # Yeşil
+            self.main_btn.text = "Devam Et"
+            self.main_btn.background_color = get_color_from_hex('#34C759') # Yeşil
+            self.reset_btn.disabled = False
+            self.reset_btn.opacity = 1
             Clock.unschedule(self.update_time)
 
-    def stop_timer(self, instance):
-        self.is_running = False
-        self.is_paused = False
-        Clock.unschedule(self.update_time)
-        
+    def reset_timer(self, instance):
         # Sıfırla
-        self.current_seconds = self.total_seconds
+        self.is_running = False
+        Clock.unschedule(self.update_time)
+        self.elapsed_seconds = 0
+        
+        # Arayüzü Sıfırla
         self.update_display()
-        self.status_label.text = "Hazır"
+        self.main_btn.text = "Başlat"
+        self.main_btn.background_color = get_color_from_hex('#34C759')
         
-        # UI eski haline
-        self.input_field.disabled = False
-        self.start_btn.disabled = False
-        self.start_btn.opacity = 1
-        
-        self.pause_btn.disabled = True
-        self.pause_btn.opacity = 0
-        self.stop_btn.disabled = True
-        self.stop_btn.opacity = 0
-        self.progress_ring.angle_end = 360
-        self.progress_ring.update_canvas()
+        self.ring.set_seconds(0)
 
     def update_time(self, dt):
-        if self.current_seconds > 0:
-            self.current_seconds -= 1
-            self.update_display()
-        else:
-            # Süre bitti! Bildirim gönder ve döngüye gir (Swift kodu mantığı)
-            self.send_notification()
-            self.current_seconds = self.total_seconds # Başa sar
-            self.update_display()
+        self.elapsed_seconds += 1
+        self.update_display()
 
     def update_display(self):
-        mins, secs = divmod(self.current_seconds, 60)
-        self.time_label.text = f'{mins:02}:{secs:02}'
-        # Halkayı güncelle
-        self.progress_ring.set_value(self.current_seconds, self.total_seconds)
-
-    def send_notification(self):
-        msg = random.choice(self.messages)
-        try:
-            notification.notify(
-                title='Odaklan!',
-                message=msg,
-                app_name='Odak App',
-                ticker='Odaklanma Uyarısı'
-            )
-        except:
-            print(f"Bildirim: {msg}")
+        # Saat : Dakika : Saniye formatı
+        m, s = divmod(self.elapsed_seconds, 60)
+        h, m = divmod(m, 60)
+        
+        if h > 0:
+            self.time_label.text = f'{h:02}:{m:02}:{s:02}'
+            self.time_label.font_size = '40sp' # Sığması için küçült
+        else:
+            self.time_label.text = f'{m:02}:{s:02}'
+            self.time_label.font_size = '50sp'
+            
+        # Halkayı güncelle (Saniye animasyonu)
+        self.ring.set_seconds(self.elapsed_seconds)
 
 if __name__ == '__main__':
     FocusApp().run()
