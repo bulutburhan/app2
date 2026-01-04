@@ -2,29 +2,27 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.properties import StringProperty, ListProperty
+from kivy.uix.floatlayout import FloatLayout
 from kivy.core.window import Window
 
-# Manuel Renk Tanımları (Import hatası riskini sıfıra indirmek için)
-# Bu renkler senin beğendiğin Forest renklerinin Python karşılığıdır.
-COLOR_CREAM = (1.0, 0.99, 0.90, 1.0)      # Arkaplan
-COLOR_GREEN = (0.4, 0.73, 0.41, 1.0)      # Başlat Butonu
-COLOR_RED = (0.93, 0.32, 0.31, 1.0)       # Bitir Butonu
-COLOR_ORANGE = (1.0, 0.65, 0.15, 1.0)     # Duraklat
-COLOR_BROWN = (0.55, 0.43, 0.39, 1.0)     # Sıfırla / Vazgeç
-COLOR_TEXT = (0.10, 0.37, 0.12, 1.0)      # Koyu Yeşil Yazı
-COLOR_BOX_BG = (0.91, 0.96, 0.91, 1.0)    # Sayaç Kutusu Zemin
+# Renk Sabitleri
+COLOR_CREAM = (1.0, 0.99, 0.90, 1.0)
+COLOR_GREEN = (0.4, 0.73, 0.41, 1.0)
+COLOR_RED = (0.93, 0.32, 0.31, 1.0)
+COLOR_ORANGE = (1.0, 0.65, 0.15, 1.0)
+COLOR_BROWN = (0.55, 0.43, 0.39, 1.0)
 
 KV_CODE = """
 <MainScreen>:
-    # 1. ARKA PLAN (Krem Rengi)
+    # ARKA PLAN
     canvas.before:
         Color:
-            rgba: 1.0, 0.99, 0.90, 1.0 
+            rgba: 1.0, 0.99, 0.90, 1.0
         Rectangle:
             pos: self.pos
             size: self.size
 
-    # 2. ORTADAKİ BÜYÜK YUVARLAK BUTON
+    # 1. ORTADAKİ BÜYÜK YUVARLAK BUTON
     Button:
         id: main_btn
         text: "Başlat"
@@ -35,18 +33,18 @@ KV_CODE = """
         size: 220, 220
         pos_hint: {'center_x': 0.5, 'center_y': 0.65}
         background_normal: ''
-        background_color: 0,0,0,0  # Standart arka planı kapat
+        background_color: 0,0,0,0
         on_press: root.toggle_timer()
         
         canvas.before:
+            # Rengi root (MainScreen) üzerinden alıyoruz
             Color:
-                rgba: self.btn_color if self.state == 'normal' else (self.btn_color[0]*0.8, self.btn_color[1]*0.8, self.btn_color[2]*0.8, 1)
-            # Ellipse: En güvenli yuvarlak çizme yöntemidir. Çökmez.
+                rgba: root.main_btn_color
             Ellipse:
                 pos: self.pos
                 size: self.size
 
-    # 3. SAYAÇ KUTUSU
+    # 2. SAYAÇ KUTUSU
     Label:
         id: time_label
         text: root.time_text
@@ -69,7 +67,7 @@ KV_CODE = """
                 rectangle: (self.x, self.y, self.width, self.height)
                 width: 2
 
-    # 4. ALT BUTONLAR (Kare/Dikdörtgen)
+    # 3. ALT BUTONLAR
     BoxLayout:
         orientation: 'horizontal'
         spacing: 30
@@ -92,7 +90,7 @@ KV_CODE = """
             
             canvas.before:
                 Color:
-                    rgba: (1.0, 0.65, 0.15, 1.0) if self.state == 'normal' else (0.8, 0.5, 0.1, 1)
+                    rgba: root.pause_btn_color
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -111,19 +109,18 @@ KV_CODE = """
             
             canvas.before:
                 Color:
-                    rgba: (0.55, 0.43, 0.39, 1.0) if self.state == 'normal' else (0.4, 0.3, 0.3, 1)
+                    rgba: 0.55, 0.43, 0.39, 1.0
                 Rectangle:
                     pos: self.pos
                     size: self.size
 """
 
-from kivy.uix.floatlayout import FloatLayout
-
 class MainScreen(FloatLayout):
     time_text = StringProperty("00:00")
     
-    # Butonun dinamik rengi (Kivy Property olarak tanımladık, hata vermez)
-    btn_color = ListProperty(COLOR_GREEN)
+    # Renkleri burada tanımlıyoruz ki KV dosyası çökmesin
+    main_btn_color = ListProperty(COLOR_GREEN)
+    pause_btn_color = ListProperty(COLOR_ORANGE)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -137,20 +134,20 @@ class MainScreen(FloatLayout):
             self.is_running = True
             self.is_paused = False
             
-            # Görsel Güncellemeler
             self.ids.main_btn.text = "Bitir"
-            self.btn_color = COLOR_RED # Kırmızıya geç
+            self.main_btn_color = COLOR_RED # Kırmızıya dön
             
             self.ids.pause_btn.disabled = False
             self.ids.pause_btn.opacity = 1
             self.ids.pause_btn.text = "Duraklat"
+            self.pause_btn_color = COLOR_ORANGE
             
             self.ids.reset_btn.disabled = True
             self.ids.reset_btn.opacity = 0.5
             
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # BİTİR (DURDUR)
+            # BİTİR
             self.stop_timer()
 
     def toggle_pause(self):
@@ -158,11 +155,13 @@ class MainScreen(FloatLayout):
             # DEVAM ET
             self.is_paused = False
             self.ids.pause_btn.text = "Duraklat"
+            self.pause_btn_color = COLOR_ORANGE
             Clock.schedule_interval(self.update_time, 1)
         else:
             # DURAKLAT
             self.is_paused = True
             self.ids.pause_btn.text = "Devam Et"
+            self.pause_btn_color = COLOR_GREEN
             Clock.unschedule(self.update_time)
             
             self.ids.reset_btn.disabled = False
@@ -174,7 +173,7 @@ class MainScreen(FloatLayout):
         Clock.unschedule(self.update_time)
         
         self.ids.main_btn.text = "Başlat"
-        self.btn_color = COLOR_GREEN # Yeşile dön
+        self.main_btn_color = COLOR_GREEN
         
         self.ids.pause_btn.disabled = True
         self.ids.pause_btn.opacity = 0.5
@@ -205,7 +204,10 @@ class MainScreen(FloatLayout):
 
 class ForestApp(App):
     def build(self):
-        return Builder.load_string(KV_CODE)
+        # Tasarımı yükle
+        Builder.load_string(KV_CODE)
+        # VE EN ÖNEMLİSİ: Ana ekranı döndür (Siyah ekranı çözen kısım burası)
+        return MainScreen()
 
 if __name__ == '__main__':
     ForestApp().run()
