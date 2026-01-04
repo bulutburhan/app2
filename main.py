@@ -8,26 +8,26 @@ from kivy.graphics import Color, Line, RoundedRectangle
 from kivy.core.window import Window
 from kivy.utils import get_color_from_hex
 
-# FOREST TEMASI: Arka plan "Krem/Bej" rengi
-Window.clearcolor = get_color_from_hex('#FFFDE7')
+# NOT: Window.clearcolor ayarını buradan kaldırdık, build() içine aldık.
+# Bu sayede Android "Window daha hazır değil" hatası vermeyecek.
 
-# --- ÖZEL BUTON VE ETİKET SINIFLARI (Hata Riskini Azaltmak İçin Ayrıldı) ---
+# --- ÖZEL SINIFLAR (GÜVENLİ HALE GETİRİLDİ) ---
 
-class RoundedButton(Button):
-    """Köşeleri yuvarlatılmış standart buton"""
+class SafeRoundedButton(Button):
     def __init__(self, **kwargs):
-        super(RoundedButton, self).__init__(**kwargs)
-        self.background_normal = ''  # Kivy'nin gri arka planını sil
-        self.background_color = (0, 0, 0, 0) # Tam şeffaf yap
-        self.btn_color = kwargs.get('bg_color', get_color_from_hex('#66BB6A')) # Varsayılan Yeşil
+        super(SafeRoundedButton, self).__init__(**kwargs)
+        self.background_normal = '' 
+        self.background_color = (0, 0, 0, 0)
+        self.btn_color = kwargs.get('bg_color', get_color_from_hex('#66BB6A'))
         self.radius = kwargs.get('radius', [15,])
+        
+        # KRİTİK DÜZELTME: Çizimi hemen yapma, ekran hazır olana kadar bekle
         self.bind(pos=self.update_canvas, size=self.update_canvas, state=self.update_canvas)
-        self.update_canvas()
+        Clock.schedule_once(self.update_canvas, 0)
 
     def update_canvas(self, *args):
         self.canvas.before.clear()
         with self.canvas.before:
-            # Tıklanınca rengi biraz koyulaştır (Görsel tepki)
             current_color = self.btn_color
             if self.state == 'down':
                 current_color = [c * 0.8 for c in self.btn_color]
@@ -35,15 +35,15 @@ class RoundedButton(Button):
             Color(rgba=current_color)
             RoundedRectangle(pos=self.pos, size=self.size, radius=self.radius)
 
-class CircleButton(Button):
-    """Tam yuvarlak dev buton"""
+class SafeCircleButton(Button):
     def __init__(self, **kwargs):
-        super(CircleButton, self).__init__(**kwargs)
+        super(SafeCircleButton, self).__init__(**kwargs)
         self.background_normal = ''
         self.background_color = (0, 0, 0, 0)
         self.btn_color = kwargs.get('bg_color', get_color_from_hex('#66BB6A'))
+        
         self.bind(pos=self.update_canvas, size=self.update_canvas, state=self.update_canvas)
-        self.update_canvas()
+        Clock.schedule_once(self.update_canvas, 0)
 
     def update_canvas(self, *args):
         self.canvas.before.clear()
@@ -53,28 +53,26 @@ class CircleButton(Button):
                 current_color = [c * 0.8 for c in self.btn_color]
             
             Color(rgba=current_color)
-            # En kısa kenara göre çap belirle ki her zaman yuvarlak kalsın
             radius = min(self.width, self.height) / 2
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[radius,])
+            # Çap 0 ise çizim yapma (Hata önleyici)
+            if radius > 0:
+                RoundedRectangle(pos=self.pos, size=self.size, radius=[radius,])
 
-class TimerLabel(Label):
-    """Çerçeveli Sayaç Kutusu"""
+class SafeTimerLabel(Label):
     def __init__(self, **kwargs):
-        super(TimerLabel, self).__init__(**kwargs)
+        super(SafeTimerLabel, self).__init__(**kwargs)
         self.font_size = '50sp'
         self.bold = True
-        self.color = get_color_from_hex('#1B5E20') # Koyu Yeşil Yazı
+        self.color = get_color_from_hex('#1B5E20')
+        
         self.bind(pos=self.update_canvas, size=self.update_canvas)
-        self.update_canvas()
+        Clock.schedule_once(self.update_canvas, 0)
 
     def update_canvas(self, *args):
         self.canvas.before.clear()
         with self.canvas.before:
-            # 1. Kutunun Arka Planı (Çok açık yeşil)
             Color(rgba=get_color_from_hex('#E8F5E9'))
             RoundedRectangle(pos=self.pos, size=self.size, radius=[10,])
-            
-            # 2. Kutunun Çerçevesi (Yeşil)
             Color(rgba=get_color_from_hex('#66BB6A'))
             Line(rounded_rectangle=(self.x, self.y, self.width, self.height, 10), width=2)
 
@@ -82,22 +80,23 @@ class TimerLabel(Label):
 
 class ForestFocusApp(App):
     def build(self):
+        # KRİTİK: Rengi burada ayarlıyoruz
+        Window.clearcolor = get_color_from_hex('#FFFDE7')
+        
         self.title = "Forest Timer"
         self.is_running = False
         self.is_paused = False
         self.elapsed_seconds = 0
         
-        # FloatLayout: Öğeleri serbestçe yerleştirmek için en iyisi
         root = FloatLayout()
         
-        # 1. BÜYÜK YUVARLAK BUTON (BAŞLAT)
-        # Konum: Ekranın biraz yukarısında (0.65)
-        self.main_btn = CircleButton(
+        # 1. BAŞLAT BUTONU
+        self.main_btn = SafeCircleButton(
             text="Başlat", 
             font_size='28sp', 
             bold=True,
             color=get_color_from_hex('#FFFFFF'),
-            bg_color=get_color_from_hex('#66BB6A'), # Canlı Yeşil
+            bg_color=get_color_from_hex('#66BB6A'),
             size_hint=(None, None), 
             size=(220, 220),
             pos_hint={'center_x': 0.5, 'center_y': 0.65}
@@ -106,8 +105,7 @@ class ForestFocusApp(App):
         root.add_widget(self.main_btn)
         
         # 2. SAYAÇ KUTUSU
-        # Konum: Butonun altında (0.40)
-        self.time_label = TimerLabel(
+        self.time_label = SafeTimerLabel(
             text="00:00", 
             size_hint=(None, None), 
             size=(240, 90),
@@ -115,8 +113,7 @@ class ForestFocusApp(App):
         )
         root.add_widget(self.time_label)
 
-        # 3. KONTROL BUTONLARI (DURAKLAT / SIFIRLA)
-        # Konum: En altta yan yana (0.20)
+        # 3. KONTROL BUTONLARI
         btn_layout = BoxLayout(
             orientation='horizontal', 
             spacing=25, 
@@ -126,25 +123,23 @@ class ForestFocusApp(App):
             pos_hint={'center_x': 0.5, 'center_y': 0.20}
         )
         
-        # Duraklat Butonu
-        self.pause_btn = RoundedButton(
+        self.pause_btn = SafeRoundedButton(
             text="Duraklat", 
             font_size='18sp', 
             bold=True,
             color=get_color_from_hex('#FFFFFF'),
-            bg_color=get_color_from_hex('#FFA726') # Turuncu
+            bg_color=get_color_from_hex('#FFA726')
         )
         self.pause_btn.bind(on_press=self.toggle_pause)
         self.pause_btn.disabled = True
-        self.pause_btn.opacity = 0.5 # Başlangıçta soluk
+        self.pause_btn.opacity = 0.5
         
-        # Sıfırla Butonu
-        self.reset_btn = RoundedButton(
+        self.reset_btn = SafeRoundedButton(
             text="Sıfırla", 
             font_size='18sp', 
             bold=True,
             color=get_color_from_hex('#FFFFFF'),
-            bg_color=get_color_from_hex('#8D6E63') # Kahve tonu
+            bg_color=get_color_from_hex('#8D6E63')
         )
         self.reset_btn.bind(on_press=self.reset_timer)
         self.reset_btn.disabled = True
@@ -158,45 +153,37 @@ class ForestFocusApp(App):
 
     def toggle_timer(self, instance):
         if not self.is_running:
-            # BAŞLATILIYOR
             self.is_running = True
             self.is_paused = False
             
-            # Ana butonu "Bitir" moduna al
             self.main_btn.text = "Bitir"
-            self.main_btn.btn_color = get_color_from_hex('#EF5350') # Kırmızı
+            self.main_btn.btn_color = get_color_from_hex('#EF5350')
             self.main_btn.update_canvas()
             
-            # Alt butonları aktif et
             self.pause_btn.disabled = False
             self.pause_btn.opacity = 1
             self.pause_btn.text = "Duraklat"
             
-            self.reset_btn.disabled = True # Çalışırken sıfırlanmasın
+            self.reset_btn.disabled = True
             self.reset_btn.opacity = 0.5
             
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # BİTİRİLİYOR (Tamamen durdur)
             self.stop_timer()
 
     def toggle_pause(self, instance):
         if self.is_paused:
-            # DEVAM ET
             self.is_paused = False
             self.pause_btn.text = "Duraklat"
-            self.pause_btn.btn_color = get_color_from_hex('#FFA726') # Turuncu
+            self.pause_btn.btn_color = get_color_from_hex('#FFA726')
             self.pause_btn.update_canvas()
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # DURAKLAT
             self.is_paused = True
             self.pause_btn.text = "Devam Et"
-            self.pause_btn.btn_color = get_color_from_hex('#66BB6A') # Yeşil (Devam et anlamında)
+            self.pause_btn.btn_color = get_color_from_hex('#66BB6A')
             self.pause_btn.update_canvas()
             Clock.unschedule(self.update_time)
-            
-            # Duraklatılınca sıfırlamaya izin ver
             self.reset_btn.disabled = False
             self.reset_btn.opacity = 1
 
@@ -205,12 +192,10 @@ class ForestFocusApp(App):
         self.is_paused = False
         Clock.unschedule(self.update_time)
         
-        # Ana butonu "Başlat" moduna al
         self.main_btn.text = "Başlat"
         self.main_btn.btn_color = get_color_from_hex('#66BB6A')
         self.main_btn.update_canvas()
         
-        # Alt butonları pasif yap veya hazırla
         self.pause_btn.disabled = True
         self.pause_btn.opacity = 0.5
         self.pause_btn.text = "Duraklat"
