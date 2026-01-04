@@ -3,201 +3,193 @@ from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.properties import StringProperty, ListProperty
 from kivy.core.window import Window
-from kivy.utils import get_color_from_hex
 
-# KV DİLİ: Arayüz çizim kuralları burada tanımlanır.
-# Kivy bu kuralları okur ve ekran hazır olduğunda güvenle çizer.
+# Manuel Renk Tanımları (Import hatası riskini sıfıra indirmek için)
+# Bu renkler senin beğendiğin Forest renklerinin Python karşılığıdır.
+COLOR_CREAM = (1.0, 0.99, 0.90, 1.0)      # Arkaplan
+COLOR_GREEN = (0.4, 0.73, 0.41, 1.0)      # Başlat Butonu
+COLOR_RED = (0.93, 0.32, 0.31, 1.0)       # Bitir Butonu
+COLOR_ORANGE = (1.0, 0.65, 0.15, 1.0)     # Duraklat
+COLOR_BROWN = (0.55, 0.43, 0.39, 1.0)     # Sıfırla / Vazgeç
+COLOR_TEXT = (0.10, 0.37, 0.12, 1.0)      # Koyu Yeşil Yazı
+COLOR_BOX_BG = (0.91, 0.96, 0.91, 1.0)    # Sayaç Kutusu Zemin
+
 KV_CODE = """
-#:import get_color_from_hex kivy.utils.get_color_from_hex
-
-# Yuvarlak Köşeli Kare Buton Tanımı (Duraklat/Sıfırla için)
-<RoundedButton@Button>:
-    background_normal: ''
-    background_color: 0,0,0,0
-    btn_color: get_color_from_hex('#66BB6A') # Varsayılan renk
-    font_size: '18sp'
-    bold: True
-    color: 1, 1, 1, 1
+<MainScreen>:
+    # 1. ARKA PLAN (Krem Rengi)
     canvas.before:
         Color:
-            # Tıklanınca rengi koyulaştır (Opaklığı değiştirerek)
-            rgba: self.btn_color if self.state == 'normal' else [c * 0.8 for c in self.btn_color]
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [15,]
-
-# Tam Yuvarlak Buton Tanımı (Başlat için)
-<CircleButton@Button>:
-    background_normal: ''
-    background_color: 0,0,0,0
-    btn_color: get_color_from_hex('#66BB6A')
-    font_size: '28sp'
-    bold: True
-    color: 1, 1, 1, 1
-    canvas.before:
-        Color:
-            rgba: self.btn_color if self.state == 'normal' else [c * 0.8 for c in self.btn_color]
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            # Genişlik ve yüksekliğin en küçüğüne göre tam daire yap
-            radius: [min(self.width, self.height) / 2.0,]
-
-FloatLayout:
-    # Arka Plan Rengi
-    canvas.before:
-        Color:
-            rgba: get_color_from_hex('#FFFDE7') # Krem Rengi
+            rgba: 1.0, 0.99, 0.90, 1.0 
         Rectangle:
             pos: self.pos
             size: self.size
 
-    # 1. ORTADAKİ BÜYÜK BUTON
-    CircleButton:
+    # 2. ORTADAKİ BÜYÜK YUVARLAK BUTON
+    Button:
         id: main_btn
         text: "Başlat"
+        font_size: '32sp'
+        bold: True
+        color: 1, 1, 1, 1
         size_hint: None, None
         size: 220, 220
         pos_hint: {'center_x': 0.5, 'center_y': 0.65}
-        on_press: app.toggle_timer()
-
-    # 2. SAYAÇ KUTUSU VE METNİ
-    Label:
-        id: time_label
-        text: app.time_text
-        font_size: '50sp'
-        bold: True
-        color: get_color_from_hex('#1B5E20') # Koyu Yeşil Yazı
-        size_hint: None, None
-        size: 240, 90
-        pos_hint: {'center_x': 0.5, 'center_y': 0.40}
+        background_normal: ''
+        background_color: 0,0,0,0  # Standart arka planı kapat
+        on_press: root.toggle_timer()
         
-        # Kutunun Çizimi
         canvas.before:
             Color:
-                rgba: get_color_from_hex('#E8F5E9') # Açık yeşil zemin
-            RoundedRectangle:
+                rgba: self.btn_color if self.state == 'normal' else (self.btn_color[0]*0.8, self.btn_color[1]*0.8, self.btn_color[2]*0.8, 1)
+            # Ellipse: En güvenli yuvarlak çizme yöntemidir. Çökmez.
+            Ellipse:
                 pos: self.pos
                 size: self.size
-                radius: [10,]
+
+    # 3. SAYAÇ KUTUSU
+    Label:
+        id: time_label
+        text: root.time_text
+        font_size: '55sp'
+        bold: True
+        color: 0.10, 0.37, 0.12, 1.0
+        size_hint: None, None
+        size: 260, 100
+        pos_hint: {'center_x': 0.5, 'center_y': 0.40}
+        
+        canvas.before:
             Color:
-                rgba: get_color_from_hex('#66BB6A') # Yeşil Çerçeve
+                rgba: 0.91, 0.96, 0.91, 1.0
+            Rectangle:
+                pos: self.pos
+                size: self.size
+            Color:
+                rgba: 0.4, 0.73, 0.41, 1.0
             Line:
-                rounded_rectangle: (self.x, self.y, self.width, self.height, 10)
+                rectangle: (self.x, self.y, self.width, self.height)
                 width: 2
 
-    # 3. ALT BUTONLAR (Yan Yana)
+    # 4. ALT BUTONLAR (Kare/Dikdörtgen)
     BoxLayout:
         orientation: 'horizontal'
-        spacing: 25
+        spacing: 30
         size_hint: None, None
-        width: 280
-        height: 60
+        width: 300
+        height: 70
         pos_hint: {'center_x': 0.5, 'center_y': 0.20}
 
-        RoundedButton:
+        # Duraklat Butonu
+        Button:
             id: pause_btn
             text: "Duraklat"
-            btn_color: get_color_from_hex('#FFA726') # Turuncu
+            font_size: '20sp'
+            bold: True
+            background_normal: ''
+            background_color: 0,0,0,0
             disabled: True
             opacity: 0.5
-            on_press: app.toggle_pause()
+            on_press: root.toggle_pause()
+            
+            canvas.before:
+                Color:
+                    rgba: (1.0, 0.65, 0.15, 1.0) if self.state == 'normal' else (0.8, 0.5, 0.1, 1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 
-        RoundedButton:
+        # Sıfırla Butonu
+        Button:
             id: reset_btn
             text: "Sıfırla"
-            btn_color: get_color_from_hex('#8D6E63') # Kahve
+            font_size: '20sp'
+            bold: True
+            background_normal: ''
+            background_color: 0,0,0,0
             disabled: True
             opacity: 0.5
-            on_press: app.reset_timer()
+            on_press: root.reset_timer()
+            
+            canvas.before:
+                Color:
+                    rgba: (0.55, 0.43, 0.39, 1.0) if self.state == 'normal' else (0.4, 0.3, 0.3, 1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 """
 
-class ForestFocusApp(App):
-    # Ekranda değişen metni Kivy'ye bildiriyoruz
+from kivy.uix.floatlayout import FloatLayout
+
+class MainScreen(FloatLayout):
     time_text = StringProperty("00:00")
     
-    def build(self):
+    # Butonun dinamik rengi (Kivy Property olarak tanımladık, hata vermez)
+    btn_color = ListProperty(COLOR_GREEN)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.is_running = False
         self.is_paused = False
         self.elapsed_seconds = 0
-        # KV kodunu güvenli bir şekilde yükle
-        return Builder.load_string(KV_CODE)
 
     def toggle_timer(self):
-        # KV dosyasındaki elemanlara erişim
-        btn = self.root.ids.main_btn
-        pause_btn = self.root.ids.pause_btn
-        reset_btn = self.root.ids.reset_btn
-        
         if not self.is_running:
-            # BAŞLATMA MANTIĞI
+            # BAŞLAT
             self.is_running = True
             self.is_paused = False
             
-            btn.text = "Bitir"
-            btn.btn_color = get_color_from_hex('#EF5350') # Kırmızıya dön
+            # Görsel Güncellemeler
+            self.ids.main_btn.text = "Bitir"
+            self.btn_color = COLOR_RED # Kırmızıya geç
             
-            pause_btn.disabled = False
-            pause_btn.opacity = 1
-            pause_btn.text = "Duraklat"
+            self.ids.pause_btn.disabled = False
+            self.ids.pause_btn.opacity = 1
+            self.ids.pause_btn.text = "Duraklat"
             
-            reset_btn.disabled = True
-            reset_btn.opacity = 0.5
+            self.ids.reset_btn.disabled = True
+            self.ids.reset_btn.opacity = 0.5
             
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # DURDURMA MANTIĞI
+            # BİTİR (DURDUR)
             self.stop_timer()
 
     def toggle_pause(self):
-        pause_btn = self.root.ids.pause_btn
-        reset_btn = self.root.ids.reset_btn
-        
         if self.is_paused:
             # DEVAM ET
             self.is_paused = False
-            pause_btn.text = "Duraklat"
-            pause_btn.btn_color = get_color_from_hex('#FFA726') # Turuncu
+            self.ids.pause_btn.text = "Duraklat"
             Clock.schedule_interval(self.update_time, 1)
         else:
             # DURAKLAT
             self.is_paused = True
-            pause_btn.text = "Devam Et"
-            pause_btn.btn_color = get_color_from_hex('#66BB6A') # Yeşil
+            self.ids.pause_btn.text = "Devam Et"
             Clock.unschedule(self.update_time)
             
-            # Duraklatınca sıfırlamaya izin ver
-            reset_btn.disabled = False
-            reset_btn.opacity = 1
+            self.ids.reset_btn.disabled = False
+            self.ids.reset_btn.opacity = 1
 
     def stop_timer(self):
         self.is_running = False
         self.is_paused = False
         Clock.unschedule(self.update_time)
         
-        btn = self.root.ids.main_btn
-        pause_btn = self.root.ids.pause_btn
-        reset_btn = self.root.ids.reset_btn
+        self.ids.main_btn.text = "Başlat"
+        self.btn_color = COLOR_GREEN # Yeşile dön
         
-        btn.text = "Başlat"
-        btn.btn_color = get_color_from_hex('#66BB6A') # Yeşile dön
+        self.ids.pause_btn.disabled = True
+        self.ids.pause_btn.opacity = 0.5
+        self.ids.pause_btn.text = "Duraklat"
         
-        pause_btn.disabled = True
-        pause_btn.opacity = 0.5
-        pause_btn.text = "Duraklat"
-        
-        reset_btn.disabled = False
-        reset_btn.opacity = 1
+        self.ids.reset_btn.disabled = False
+        self.ids.reset_btn.opacity = 1
 
     def reset_timer(self):
         self.stop_timer()
         self.elapsed_seconds = 0
         self.update_display()
         
-        reset_btn = self.root.ids.reset_btn
-        reset_btn.disabled = True
-        reset_btn.opacity = 0.5
+        self.ids.reset_btn.disabled = True
+        self.ids.reset_btn.opacity = 0.5
 
     def update_time(self, dt):
         self.elapsed_seconds += 1
@@ -206,11 +198,14 @@ class ForestFocusApp(App):
     def update_display(self):
         m, s = divmod(self.elapsed_seconds, 60)
         h, m = divmod(m, 60)
-        
         if h > 0:
             self.time_text = f'{h:02}:{m:02}:{s:02}'
         else:
             self.time_text = f'{m:02}:{s:02}'
 
+class ForestApp(App):
+    def build(self):
+        return Builder.load_string(KV_CODE)
+
 if __name__ == '__main__':
-    ForestFocusApp().run()
+    ForestApp().run()
