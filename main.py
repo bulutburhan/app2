@@ -1,49 +1,54 @@
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
-from kivy.properties import StringProperty, NumericProperty, BooleanProperty
+from kivy.properties import StringProperty, ListProperty
 from kivy.core.window import Window
+from kivy.utils import get_color_from_hex
 
-# KV DİLİ - ARAYÜZ TASARIMI (Bu kısım Android'de asla çökmez)
-KV = """
+# KV DİLİ: Arayüz çizim kuralları burada tanımlanır.
+# Kivy bu kuralları okur ve ekran hazır olduğunda güvenle çizer.
+KV_CODE = """
 #:import get_color_from_hex kivy.utils.get_color_from_hex
 
+# Yuvarlak Köşeli Kare Buton Tanımı (Duraklat/Sıfırla için)
 <RoundedButton@Button>:
     background_normal: ''
     background_color: 0,0,0,0
-    btn_color: get_color_from_hex('#66BB6A') # Varsayılan Yeşil
-    color: 1,1,1,1
+    btn_color: get_color_from_hex('#66BB6A') # Varsayılan renk
     font_size: '18sp'
     bold: True
+    color: 1, 1, 1, 1
     canvas.before:
         Color:
-            rgba: root.btn_color if self.state == 'normal' else [c*0.8 for c in root.btn_color]
+            # Tıklanınca rengi koyulaştır (Opaklığı değiştirerek)
+            rgba: self.btn_color if self.state == 'normal' else [c * 0.8 for c in self.btn_color]
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [15,]
 
+# Tam Yuvarlak Buton Tanımı (Başlat için)
 <CircleButton@Button>:
     background_normal: ''
     background_color: 0,0,0,0
     btn_color: get_color_from_hex('#66BB6A')
-    color: 1,1,1,1
     font_size: '28sp'
     bold: True
+    color: 1, 1, 1, 1
     canvas.before:
         Color:
-            rgba: root.btn_color if self.state == 'normal' else [c*0.8 for c in root.btn_color]
+            rgba: self.btn_color if self.state == 'normal' else [c * 0.8 for c in self.btn_color]
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            # Eni ve boyu ne olursa olsun tam yuvarlak yapar
-            radius: [min(self.width, self.height) / 2,]
+            # Genişlik ve yüksekliğin en küçüğüne göre tam daire yap
+            radius: [min(self.width, self.height) / 2.0,]
 
 FloatLayout:
-    # ARKA PLAN RENGİ (Krem/Bej)
+    # Arka Plan Rengi
     canvas.before:
         Color:
-            rgba: get_color_from_hex('#FFFDE7')
+            rgba: get_color_from_hex('#FFFDE7') # Krem Rengi
         Rectangle:
             pos: self.pos
             size: self.size
@@ -63,7 +68,7 @@ FloatLayout:
         text: app.time_text
         font_size: '50sp'
         bold: True
-        color: get_color_from_hex('#1B5E20') # Koyu Yeşil
+        color: get_color_from_hex('#1B5E20') # Koyu Yeşil Yazı
         size_hint: None, None
         size: 240, 90
         pos_hint: {'center_x': 0.5, 'center_y': 0.40}
@@ -82,7 +87,7 @@ FloatLayout:
                 rounded_rectangle: (self.x, self.y, self.width, self.height, 10)
                 width: 2
 
-    # 3. ALT KONTROL BUTONLARI (Kapsayıcı)
+    # 3. ALT BUTONLAR (Yan Yana)
     BoxLayout:
         orientation: 'horizontal'
         spacing: 25
@@ -109,28 +114,29 @@ FloatLayout:
 """
 
 class ForestFocusApp(App):
+    # Ekranda değişen metni Kivy'ye bildiriyoruz
     time_text = StringProperty("00:00")
     
     def build(self):
         self.is_running = False
         self.is_paused = False
         self.elapsed_seconds = 0
-        return Builder.load_string(KV)
+        # KV kodunu güvenli bir şekilde yükle
+        return Builder.load_string(KV_CODE)
 
     def toggle_timer(self):
+        # KV dosyasındaki elemanlara erişim
         btn = self.root.ids.main_btn
         pause_btn = self.root.ids.pause_btn
         reset_btn = self.root.ids.reset_btn
         
-        from kivy.utils import get_color_from_hex
-        
         if not self.is_running:
-            # BAŞLAT
+            # BAŞLATMA MANTIĞI
             self.is_running = True
             self.is_paused = False
             
             btn.text = "Bitir"
-            btn.btn_color = get_color_from_hex('#EF5350') # Kırmızı
+            btn.btn_color = get_color_from_hex('#EF5350') # Kırmızıya dön
             
             pause_btn.disabled = False
             pause_btn.opacity = 1
@@ -141,26 +147,27 @@ class ForestFocusApp(App):
             
             Clock.schedule_interval(self.update_time, 1)
         else:
-            # DURDUR
+            # DURDURMA MANTIĞI
             self.stop_timer()
 
     def toggle_pause(self):
         pause_btn = self.root.ids.pause_btn
         reset_btn = self.root.ids.reset_btn
-        from kivy.utils import get_color_from_hex
         
         if self.is_paused:
             # DEVAM ET
             self.is_paused = False
             pause_btn.text = "Duraklat"
-            pause_btn.btn_color = get_color_from_hex('#FFA726')
+            pause_btn.btn_color = get_color_from_hex('#FFA726') # Turuncu
             Clock.schedule_interval(self.update_time, 1)
         else:
             # DURAKLAT
             self.is_paused = True
             pause_btn.text = "Devam Et"
-            pause_btn.btn_color = get_color_from_hex('#66BB6A')
+            pause_btn.btn_color = get_color_from_hex('#66BB6A') # Yeşil
             Clock.unschedule(self.update_time)
+            
+            # Duraklatınca sıfırlamaya izin ver
             reset_btn.disabled = False
             reset_btn.opacity = 1
 
@@ -172,10 +179,9 @@ class ForestFocusApp(App):
         btn = self.root.ids.main_btn
         pause_btn = self.root.ids.pause_btn
         reset_btn = self.root.ids.reset_btn
-        from kivy.utils import get_color_from_hex
         
         btn.text = "Başlat"
-        btn.btn_color = get_color_from_hex('#66BB6A')
+        btn.btn_color = get_color_from_hex('#66BB6A') # Yeşile dön
         
         pause_btn.disabled = True
         pause_btn.opacity = 0.5
@@ -200,6 +206,7 @@ class ForestFocusApp(App):
     def update_display(self):
         m, s = divmod(self.elapsed_seconds, 60)
         h, m = divmod(m, 60)
+        
         if h > 0:
             self.time_text = f'{h:02}:{m:02}:{s:02}'
         else:
